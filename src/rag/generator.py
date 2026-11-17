@@ -70,15 +70,88 @@ class ExtractiveGenerator:
         return "\n".join(out)
 
 
-def make_generator(kind: str = "auto"):
-    """``auto``: Claude wenn ``anthropic`` installiert und ANTHROPIC_API_KEY gesetzt ist."""
-    if kind in ("auto", "claude"):
+class OllamaGenerator:
+    """Lokales LLM über Ollama (z. B. ``llama3.2:3b``) – kein API-Key, keine Daten verlassen den Rechner.
+
+    Nutzt die HTTP-API von Ollama (Standard: http://localhost:11434), daher kein Zusatzpaket nötig.
+    """
+
+    def __init__(self, model: str | None = None, host: str | None = None, timeout: int = 300) -> None:
+        self.model = model or os.getenv("RAG_OLLAMA_MODEL", "llama3.2:3b")
+        self.host = (host or os.getenv("OLLAMA_HOST", "http://localhost:11434")).rstrip("/")
+        if not self.host.startswith("http"):
+            self.host = "http://" + self.host
+        self.timeout = timeout
+        self._check()
+
+    def _request(self, path: str, payload: dict | None = None, timeout: int = 5) -> dict:
+        import json
+        import urllib.request
+
+        data = json.dumps(payload).encode() if payload is not None else None
+        req = urllib.request.Request(
+            self.host + path, data=data, headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read().decode())
+
+    def _check(self) -> None:
         try:
-            if not os.getenv("ANTHROPIC_API_KEY"):
-                raise RuntimeError("ANTHROPIC_API_KEY nicht gesetzt")
+            tags = self._request("/api/tags")
+        except Exception as exc:
+            raise RuntimeError(
+                f"Ollama unter {self.host} nicht erreichbar – läuft die Ollama-App bzw. `ollama serve`? ({exc})"
+            ) from exc
+        names = {m.get("name", "") for m in tags.get("models", [])}
+        if self.model not in names and f"{self.model}:latest" not in names:
+            raise RuntimeError(
+                f"Modell '{self.model}' nicht in Ollama installiert. Vorhanden: {sorted(names) or 'keine'}. "
+                f"Mit `ollama pull {self.model}` laden oder RAG_OLLAMA_MODEL anpassen."
+            )
+
+    def generate(self, question: str, hits: list[tuple[Chunk, float]]) -> str:
+        if not hits:
+            return "Zu dieser Frage wurden keine passenden Dokumentstellen gefunden."
+        user = f"Quellen:\n\n{format_context(hits)}\n\nFrage: {question}\n\nAntworte auf Deutsch und nenne die Quellen."
+        resp = self._request(
+            "/api/chat",
+            {
+                "model": self.model,
+                "messages": [
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": user},
+                ],
+                "stream": False,
+                # niedrige Temperatur = weniger "Kreativität" bei Zahlen; großer Kontext für k Chunks
+                "options": {"temperature": 0.1, "num_ctx": 8192},
+            },
+            timeout=self.timeout,
+        )
+        return resp.get("message", {}).get("content", "").strip()
+
+
+def make_generator(kind: str | None = None):
+    """Wählt das LLM. ``kind`` bzw. RAG_LLM_BACKEND: auto | claude | ollama | extractive.
+
+    ``auto``: Claude, wenn ANTHROPIC_API_KEY gesetzt ist; sonst Ollama, wenn erreichbar;
+    sonst extraktiver Modus.
+    """
+    kind = kind or os.getenv("RAG_LLM_BACKEND", "auto")
+    if kind == "extractive":
+        return ExtractiveGenerator()
+    if kind == "ollama":
+        return OllamaGenerator()
+    if kind == "claude":
+        return ClaudeGenerator()
+    # auto
+    if os.getenv("ANTHROPIC_API_KEY"):
+        try:
             return ClaudeGenerator()
         except Exception as exc:
-            if kind == "claude":
-                raise
-            print(f"[rag] LLM nicht verfügbar ({exc}) – nutze extraktiven Modus.")
+            print(f"[rag] Claude nicht verfügbar ({exc}).")
+    try:
+        return OllamaGenerator()
+    except Exception as exc:
+        print(f"[rag] Ollama nicht verfügbar ({exc}).")
+    print("[rag] Kein LLM verfügbar – nutze extraktiven Modus.")
     return ExtractiveGenerator()

@@ -47,7 +47,7 @@ def build_index(
 
 
 class RAG:
-    def __init__(self, index_dir: str | Path = DEFAULT_INDEX, generator: str = "auto") -> None:
+    def __init__(self, index_dir: str | Path = DEFAULT_INDEX, generator: str | None = None) -> None:
         self.index = HybridIndex.load(index_dir)
         self.generator = make_generator(generator)
 

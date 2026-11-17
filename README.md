@@ -131,12 +131,13 @@ Vektor-Rangliste zusammenführt.
 
 | Aufgabe     | Modell                                           | konfigurierbar über |
 |-------------|--------------------------------------------------|---------------------|
-| Antwort     | **Claude** über die Anthropic API, Standard `claude-sonnet-5-5` | `RAG_LLM_MODEL`     |
+| Antwort (lokal) | **Ollama**, Standard `llama3.2:3b`             | `RAG_LLM_BACKEND=ollama`, `RAG_OLLAMA_MODEL` |
+| Antwort (Cloud) | **Claude** über die Anthropic API, Standard `claude-sonnet-5-5` | `RAG_LLM_BACKEND=claude`, `RAG_LLM_MODEL` |
 | Embeddings  | `intfloat/multilingual-e5-small` (lokal, mehrsprachig) | `RAG_EMBED_MODEL`, `RAG_EMBEDDER` |
 | Fallback    | TF-IDF (Zeichen-3- bis 5-Gramme) statt Embeddings; extraktive Antwort statt LLM | automatisch |
 
 Das LLM wird nur für die *Formulierung* der Antwort genutzt. Suche und Chunking laufen lokal
-ohne LLM. Ein anderes LLM (z. B. OpenAI, lokal via Ollama) lässt sich anbinden, indem man in
+ohne LLM. Ein weiteres LLM (z. B. OpenAI) lässt sich anbinden, indem man in
 `generator.py` eine Klasse mit derselben `generate(question, hits)`-Methode ergänzt.
 
 Die Evaluationswerte unten wurden mit dem TF-IDF-Fallback gemessen; mit dem Embedding-Modell
@@ -150,19 +151,33 @@ sind bessere Werte bei umschriebenen Fragen zu erwarten.
 4. Prompt an Claude: Systemregeln (nur aus Quellen, Werte exakt, Quelle zitieren) + k Chunks + Frage
 5. Antwort + Quellenliste (Dokument, Produkt, Kunde, Seiten)
 
-## Schnellstart
+## Schnellstart (lokal mit Ollama, ohne API-Key)
+
+Voraussetzung: [Ollama](https://ollama.com) ist installiert und läuft (Ollama-App geöffnet
+oder `ollama serve` in einem eigenen Terminal).
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env            # ANTHROPIC_API_KEY eintragen
+ollama list                     # Modellnamen prüfen, z. B. llama3.2:3b
+ollama pull llama3.2:3b         # nur falls noch nicht vorhanden
 
-export PYTHONPATH=src           # oder: pip install -e .
-python -m rag ingest            # PDF(s) aus data/raw einlesen, Index nach index/
-python -m rag ask "Welche Motorleistung hat die Maschine bei Nordic Meats?"
-python -m rag chat              # interaktiv
-streamlit run app.py            # Web-Oberfläche
+cd rag_system
+conda create -n rag python=3.11 -y && conda activate rag     # oder: python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env            # RAG_OLLAMA_MODEL = Name aus `ollama list`
+
+export PYTHONPATH=src           # oder einmalig: pip install -e .
+python -m rag ingest            # PDF einlesen, Index bauen (lädt beim 1. Mal das Embedding-Modell)
+python -m rag ask "Welche Maschine produziert Nassfutter-Paté?"
+python -m rag chat              # interaktiv Fragen stellen
+streamlit run app.py            # Web-Oberfläche im Browser
 ```
+
+Mit Claude statt Ollama: in `.env` `RAG_LLM_BACKEND=claude` und `ANTHROPIC_API_KEY` setzen.
+
+**Hinweis zu kleinen Modellen (3B):** Die Suche ist vom LLM unabhängig, die Quellen stimmen also
+immer. Ein 3B-Modell formuliert aber schwächer, vor allem bei Vergleichen über viele Kunden,
+und kann Zahlen vertauschen. Darum immer die angezeigten Quellen gegenprüfen. Bessere lokale
+Alternativen, falls der Rechner es schafft: `llama3.1:8b`, `qwen2.5:7b`, `mistral-nemo`.
 
 Weitere PDFs einfach in `data/raw/` legen und `python -m rag ingest` erneut ausführen.
 
