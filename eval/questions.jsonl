@@ -1,0 +1,22 @@
+{"question": "Welche Lochplatte ist bei PetVital Nutrition für Nassfutter-Paté Rind in Stufe 2 verbaut?", "expected": ["VB-2015-012#p1"], "answer_hint": "Lochplatte 1,5 mm"}
+{"question": "Mit welcher Drehzahl läuft die Formfleisch-Emulsion Geflügel bei Canis & Felis?", "expected": ["VB-2019-003#p1"], "answer_hint": "2400 min⁻¹"}
+{"question": "Welche Motorleistung hat der Feinstzerkleinerer bei Nordic Meats?", "expected": ["VB-2023-008#maschine"], "answer_hint": "55 kW"}
+{"question": "Zu welchem Kunden gehört die Maschine mit Seriennummer 28565?", "expected": ["VB-2019-003#maschine"], "answer_hint": "Canis & Felis Foods B.V."}
+{"question": "Wie hoch ist der Durchsatz beim Lyoner-Brät von Nordic Meats?", "expected": ["VB-2023-008#p2"], "answer_hint": "1.600 kg/h"}
+{"question": "Was wurde laut Änderungshistorie in VB-2025-025 geändert?", "expected": ["VB-2025-025#bemerkungen"], "answer_hint": "Schneidsatz angepasst (Rev. 1), Option nachgerüstet (Rev. 2)"}
+{"question": "Mit welcher Temperatur kommt der Streichkäse bei der Fromagerie du Jura in die Maschine?", "expected": ["VB-2015-022#p1"], "answer_hint": "82,1 °C"}
+{"question": "Warum wurde abweichend vom Standard der kleinere Trichter gewählt?", "expected": ["VB-2017-028#p2", "VB-2020-017#p2"], "answer_hint": "Raumhöhe am Aufstellort"}
+{"question": "Bei welchen Kunden gab es eine Reklamation wegen sichtbarer Körnung im Endprodukt?", "expected": ["VB-2016-023#p2", "VB-2021-026#p1", "VB-2023-010#p2"], "answer_hint": "Schmelzwerk Rheinland, Zakłady Mięsne Dolina, Mascota Premium"}
+{"question": "Welche Maschine mit welchem Baujahr steht bei Heartland Pet Foods?", "expected": ["VB-2021-019#maschine"], "answer_hint": "FL248 SE"}
+{"question": "Welche Endtemperatur erreicht die Surimi-Grundmasse bei Ocean Harvest?", "expected": ["VB-2020-027#p1"], "answer_hint": "7 °C"}
+{"question": "Welche Rohstoffe verarbeitet Mlekara Sava für die Analogkäse-Masse?", "expected": ["VB-2025-016#p1"], "answer_hint": ""}
+{"question": "Wer hat die Verfahrensbeschreibung für die Käserei Oberallgäu erstellt?", "expected": ["VB-2021-011#maschine"], "answer_hint": "A. Wiedemann"}
+{"question": "Welcher Schneidsatz wird bei Babyfood Nordwest für Babynahrung eingesetzt?", "expected": ["VB-2018-001#p1"], "answer_hint": ""}
+{"question": "Wie warm ist die Kochwurst-Grundmasse bei Zakłady Mięsne Dolina beim Eintritt?", "expected": ["VB-2021-026#p1"], "answer_hint": "45 °C"}
+{"question": "Wie hoch ist der Knochenanteil der Formfleisch-Emulsion bei Karpaten Petfood?", "expected": ["VB-2016-004#p2"], "answer_hint": "ca. 24 %"}
+{"question": "Welche Optionen hat die Maschine von Mediterra Salsas?", "expected": ["VB-2021-005#maschine"], "answer_hint": ""}
+{"question": "Bei welchem Kunden läuft die Blockkäse-Standardisierung mit 7.600 kg/h?", "expected": ["VB-2020-020#p3"], "answer_hint": "Formaggi Fusi S.p.A."}
+{"question": "Wo wurde der Messerkopf der ersten Stufe wegen unzureichender Standzeit auf 3 Klingen umgestellt?", "expected": ["VB-2016-024#p3", "VB-2017-002#p2", "VB-2018-001#p3", "VB-2019-003#p2", "VB-2020-027#p1"], "answer_hint": ""}
+{"question": "Welche Fleischemulsion für Trockenfutter-Coating fährt Heartland und mit welchem Durchsatz?", "expected": ["VB-2021-019#p1"], "answer_hint": "5.900 kg/h"}
+{"question": "Welche Leistung hat der Motor bei der Käserei im Allgäu?", "expected": ["VB-2021-011#maschine"], "answer_hint": "90 kW"}
+{"question": "Welche Hummus-Anlage hat den höchsten Durchsatz?", "expected": ["VB-2021-005#p2"], "answer_hint": "Mediterra Salsas, 2.100 kg/h"}

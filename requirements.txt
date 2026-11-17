@@ -1,0 +1,16 @@
+# Kern (Ingestion, Index, Retrieval)
+pdfplumber>=0.11
+numpy>=1.26
+scikit-learn>=1.4
+
+# Antwortgenerierung mit Claude (optional – ohne Key läuft der extraktive Modus)
+anthropic>=0.40
+
+# Semantische Embeddings (optional – ohne läuft der TF-IDF-Fallback)
+sentence-transformers>=3.0
+
+# Web-UI (optional)
+streamlit>=1.38
+
+# Tests
+pytest>=8
