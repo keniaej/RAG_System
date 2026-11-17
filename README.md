@@ -39,6 +39,117 @@ PDF ──► Ingestion ──────────────► Chunks (+ 
 - **Grounded Generation.** Claude antwortet nur aus den Quellen, nennt Werte exakt mit
   Einheit, zitiert `[VB-…, Produkt]` und sagt ausdrücklich, wenn ein Wert „k. A.“ ist.
 
+## Technische Details
+
+### Muss man die Dokumente in einzelne Dateien trennen?
+
+Nein. Die PDF bleibt eine Datei. Die Trennung passiert **logisch beim Einlesen**:
+Jede Seite hat eine Fußzeile wie `VB-2019-003 · Canis & Felis Foods B.V. · vertraulich`.
+Darüber wird jede Seite ihrem Dokument zugeordnet (`split_pdf_into_documents`), die Fußzeile
+selbst wird entfernt.
+
+Wichtig ist diese Zuordnung trotzdem – nicht wegen der Dateien, sondern wegen der
+**Quellenangabe und der Trennschärfe**:
+
+- Ohne Trennung könnte ein Chunk das Ende von Dokument A und den Anfang von Dokument B
+  enthalten. Werte zweier Kunden würden vermischt.
+- Als Quelle käme nur „Alle_Demo-Dokumente.pdf, Seite 26“ heraus. Mit Trennung wird
+  `VB-2019-003, Fleischemulsion für Trockenfutter-Coating (Canis & Felis, S. 25–26)` zitiert.
+
+Liegen die Dokumente als Einzeldateien vor, funktioniert die Ingestion genauso
+(`python -m rag ingest data/raw/`) – die Dokument-Nr. kommt immer aus der Fußzeile.
+
+### Wie wird gechunkt?
+
+**Nicht pro Absatz und nicht nach fester Zeichenzahl**, sondern entlang der Dokumentstruktur:
+
+| Chunk-Typ     | Inhalt                                                           | Anzahl | Größe (Wörter, Median) |
+|---------------|------------------------------------------------------------------|-------:|-----------------------:|
+| `maschine`    | Kopfdaten + Maschinenkonfiguration + Liste der Produkte          | 30     | ~120                   |
+| `produkt`     | ein komplettes Verfahren: Rohstoffe, Temperaturen, Drehzahl, Durchsatz, Schneidsatz-Tabelle, Prozessparameter-Tabelle, Besonderheit | 80 | ~130 (max. 175) |
+| `bemerkungen` | Bemerkungen bzw. Änderungshistorie                               | 30     | ~40                    |
+
+Erkannt werden die Grenzen über Überschriften-Muster (`ingest.py`):
+`1. Produktname` / `2.1 Produktname` (Produktbeginn), `Maschinenausstattung` /
+`1 Maschinenkonfiguration`, `3 Bemerkungen` / `3 Änderungshistorie`.
+
+Eine Frage wie „Welche Lochplatte in Stufe 2 bei Kunde X für Produkt Y?“ braucht genau
+*einen* Produkt-Chunk – alle Werte stehen zusammen. Absatz-Chunking würde Fließtext und
+Schneidsatz-Tabelle trennen; dann fehlt einem Teil die Info, zu welchem Produkt er gehört.
+
+Jeder Chunk bekommt zusätzlich einen **Kontext-Header** vorangestellt:
+
+```
+Dokument VB-2023-008 (Verfahrensbeschreibung) | Kunde: Nordic Meats AB, Jönköping (SE) |
+Maschine: KS Feinstzerkleinerer FD225 D, Seriennummer 23978, Baujahr 2022 | Datum: 23.10.2023
+Produkt/Verfahren: Lyoner-Brät
+2.2 Lyoner-Brät
+Rohstoffe: ...
+```
+
+Die Chunks sind mit ~100–175 Wörtern klein genug für präzise Suche und groß genug, um ein
+Verfahren vollständig zu enthalten. Alle Chunks ansehen: `python -m rag export chunks.jsonl`.
+
+### Wie werden die Tabellen behandelt?
+
+Tabellen werden **nicht separat gechunkt**, sondern bleiben als Textzeilen in dem Chunk, zu
+dem sie gehören (Maschinenausstattung → `maschine`, Schneidsatz und Prozessparameter →
+`produkt`). `pdfplumber` gibt jede Tabellenzeile als eine Textzeile aus, inklusive Kopfzeile:
+
+```
+Schneidsatzbestückung
+Stufe Typ Bohrung / Schneidspalt Bemerkung
+1 Messerkopf / Lochplatte Lochplatte 8,0 mm Messerkopf 6-Klingen
+2 Messerkopf / Lochplatte Lochplatte 3,0 mm
+3 RotaPlate Bohrung 0,6 mm
+```
+
+Weil die Kopfzeile mitkommt, kann das LLM die Spalten zuordnen. Bei 49 von 80 Produkten
+läuft eine Tabelle über einen Seitenumbruch (z. B. „Prozessparameter“ unten auf Seite 25,
+„Parameter / Wert“ oben auf Seite 26). Da die Seiten eines Dokuments vor dem Chunking
+zusammengefügt und die Fußzeilen entfernt werden, landet die Tabelle trotzdem vollständig in
+einem Chunk.
+
+Zusätzlich werden einige Kennzahlen per Regex als Metadaten extrahiert
+(`durchsatz_kg_h`, `drehzahl_min`, `vakuum`, `stufen`; t/h wird in kg/h umgerechnet).
+Sie dienen zum Filtern und als Basis für spätere Tabellen-Abfragen.
+
+### Was ist `k`?
+
+`k` = **Anzahl der Chunks, die die Suche zurückgibt und an das LLM übergibt** (Standard 6,
+CLI `-k`, im UI ein Schieberegler).
+
+- zu klein (1–2): bei Vergleichsfragen („Welche Kunden fahren Hummus?“, 5 Treffer) fehlen Quellen
+- zu groß (20+): mehr irrelevanter Kontext, höhere Kosten, das LLM wird eher abgelenkt
+
+In der Evaluation bedeutet **Hit@k**: Anteil der Fragen, bei denen der richtige Chunk unter
+den ersten k Treffern ist. Nicht verwechseln mit `rrf_k = 60` in `index.py` – das ist eine
+Glättungskonstante der Reciprocal Rank Fusion (Score = Σ 1 / (60 + Rang)), die BM25- und
+Vektor-Rangliste zusammenführt.
+
+### Welches LLM / welche Modelle?
+
+| Aufgabe     | Modell                                           | konfigurierbar über |
+|-------------|--------------------------------------------------|---------------------|
+| Antwort     | **Claude** über die Anthropic API, Standard `claude-sonnet-5-5` | `RAG_LLM_MODEL`     |
+| Embeddings  | `intfloat/multilingual-e5-small` (lokal, mehrsprachig) | `RAG_EMBED_MODEL`, `RAG_EMBEDDER` |
+| Fallback    | TF-IDF (Zeichen-3- bis 5-Gramme) statt Embeddings; extraktive Antwort statt LLM | automatisch |
+
+Das LLM wird nur für die *Formulierung* der Antwort genutzt. Suche und Chunking laufen lokal
+ohne LLM. Ein anderes LLM (z. B. OpenAI, lokal via Ollama) lässt sich anbinden, indem man in
+`generator.py` eine Klasse mit derselben `generate(question, hits)`-Methode ergänzt.
+
+Die Evaluationswerte unten wurden mit dem TF-IDF-Fallback gemessen; mit dem Embedding-Modell
+sind bessere Werte bei umschriebenen Fragen zu erwarten.
+
+### Ablauf einer Frage
+
+1. Frage auf Dokument-Nr. oder eindeutigen Kundennamen prüfen → ggf. Filter setzen
+2. BM25-Ranking und Vektor-Ranking über alle (gefilterten) Chunks
+3. Fusion per RRF → Top-k Chunks
+4. Prompt an Claude: Systemregeln (nur aus Quellen, Werte exakt, Quelle zitieren) + k Chunks + Frage
+5. Antwort + Quellenliste (Dokument, Produkt, Kunde, Seiten)
+
 ## Schnellstart
 
 ```bash
