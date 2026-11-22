@@ -21,8 +21,24 @@ Regeln:
 - Zitiere nach jeder Aussage die Quelle in eckigen Klammern, z. B. [VB-2019-003, Formfleisch-Emulsion Geflügel].
 - Ist ein Wert in der Quelle als "k. A." oder "nicht erfasst" angegeben, sag das ausdrücklich.
 - Wenn die Quellen die Frage nicht beantworten, sag klar, dass die Information nicht vorliegt.
-- Bei Vergleichen über mehrere Kunden: nutze eine kurze Tabelle.
-- Antworte in der Sprache der Frage (standardmäßig Deutsch), knapp und sachlich."""
+- Prüfe jede Quelle einzeln. Kommt dasselbe Produkt bei mehreren Kunden vor, nenne ALLE Kunden \
+und ALLE Maschinentypen, nicht nur den ersten.
+- Bei Vergleichen über mehrere Kunden: beginne mit einem Satz, der das Ergebnis zusammenfasst, \
+dann eine kurze Tabelle mit einer Zeile pro Kunde und der Quelle in jeder Zeile.
+- Antworte in der Sprache der Frage (standardmäßig Deutsch), knapp und sachlich.
+
+Beispiel (erfundene Daten, zeigt nur die Form der Antwort):
+Frage: Welche Maschine produziert Leberpastete?
+Quellen: VB-0000-001 (Kunde A, Maschine FX100), VB-0000-002 (Kunde B, Maschine FY200), \
+VB-0000-003 (Kunde C, Maschine FX100), jeweils mit Produkt Leberpastete.
+Antwort:
+Leberpastete läuft bei 3 Kunden auf zwei Maschinentypen: FX100 (2 Kunden) und FY200 (1 Kunde).
+
+| Kunde | Maschine | Seriennummer | Quelle |
+| --- | --- | --- | --- |
+| Kunde A | FX100 | 11111 | [VB-0000-001] |
+| Kunde B | FY200 | 22222 | [VB-0000-002] |
+| Kunde C | FX100 | 33333 | [VB-0000-003] |"""
 
 
 def format_context(hits: list[tuple[Chunk, float]]) -> str:
@@ -48,6 +64,7 @@ class ClaudeGenerator:
         msg = self.client.messages.create(
             model=self.model,
             max_tokens=self.max_tokens,
+            temperature=0,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user}],
         )
@@ -122,8 +139,13 @@ class OllamaGenerator:
                     {"role": "user", "content": user},
                 ],
                 "stream": False,
-                # niedrige Temperatur = weniger "Kreativität" bei Zahlen; großer Kontext für k Chunks
-                "options": {"temperature": 0.1, "num_ctx": 8192},
+                # Temperatur 0 + fester Seed = gleiche Frage, gleiche Antwort (reproduzierbar testbar);
+                # großer Kontext, damit alle k Chunks hineinpassen
+                "options": {
+                    "temperature": float(os.getenv("RAG_TEMPERATURE", "0")),
+                    "seed": int(os.getenv("RAG_SEED", "42")),
+                    "num_ctx": 8192,
+                },
             },
             timeout=self.timeout,
         )
